@@ -7,7 +7,7 @@ The objective of this part is to implement some functions on grammars. We assume
 the symbol $.
 1. Propose a data structure to represent grammars.
 2. Implement a function `create_G` to create a grammar **(of any type)**
-3. Implement a function `Display_Rules` to display the derivation rules of the created grammar. For example, for the G Grammar:
+3. Implement a function `Display_Rules` to display the derivation rules of the created grammar. For example, for the $$G$$ Grammar:
 $$G = (V_T, V_N, A, P) \text{ with: } V_T = \{a, b\}, \ V_N = \{S, T\}, \ S, \ P = \{ S \rightarrow aS \mid T, \ T \rightarrow bT \mid \epsilon \}$$
 We display:
     ```
