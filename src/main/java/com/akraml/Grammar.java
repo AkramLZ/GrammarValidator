@@ -23,35 +23,26 @@ public final class Grammar {
     }
 
     public boolean isType3() {
-        Map<String, List<String>> productions = getProductions();
-        Set<String> V_T = getVT();
-        Set<String> V_N = getVN();
-        String startSymbol = getS();
+        boolean isRightLinear = true;
+        boolean isLeftLinear = true;
 
-        for (String A : productions.keySet()) {
-            for (String r : productions.get(A)) {
-                if (r.equals("$")) {
-                    // Only the start symbol may have an ε-production.
-                    if (!A.equals(startSymbol)) {
-                        return false;
-                    }
-                } else if (r.length() == 1) {
-                    if (!V_T.contains(r)) {
-                        return false;
-                    }
-                } else if (r.length() == 2) {
-                    String first = r.substring(0, 1);
-                    String second = r.substring(1);
-                    if (!V_T.contains(first) || !V_N.contains(second)) {
-                        return false;
-                    }
-                } else {
-                    // Productions longer than 2 symbols are not allowed in a regular 
-                    return false;
+        for (Map.Entry<String, List<String>> entry : productions.entrySet()) {
+            String nonTerminal = entry.getKey();
+            for (String production : entry.getValue()) {
+                // Check for right-linear form: A -> aB or A -> a or A -> ε
+                if (!production.matches("^[a-z]?[A-Z]?$") && !production.equals("$")) {
+                    isRightLinear = false;
+                }
+
+                // Check for left-linear form: A -> Ba or A -> a or A -> ε
+                if (!production.matches("^[A-Z]?[a-z]?$") && !production.equals("$")) {
+                    isLeftLinear = false;
                 }
             }
         }
-        return true;
+
+        // The grammar is type 3 if it is either right-linear or left-linear, but not both
+        return isRightLinear || isLeftLinear;
     }
 
     public boolean isContextFree() {
@@ -100,7 +91,7 @@ public final class Grammar {
      *  Type 3: Regular Grammar
      * The classification is done hierarchically.
      */
-    public int classifyGrammar() {
+    public int classify() {
         // First, if not context-free, then it's unrestricted (Type 0).
         if (!isContextFree()) {
             return 0;
