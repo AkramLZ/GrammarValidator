@@ -11,7 +11,7 @@ public class Main {
         Set<String> terminals = new HashSet<>(Arrays.asList(scanner.nextLine().split("\\+s")));
         // Input non-terminals
         System.out.println("Enter non-terminal symbols (separated by spaces, e.g., S A B):");
-        Set<String> nonTerminals = new HashSet<>(Arrays.asList(scanner.nextLine().split("\\+s")));
+        Set<String> nonTerminals = new HashSet<>(Arrays.asList(scanner.nextLine().split("\\s+")));
         // Input start symbol
         System.out.println("Enter the start symbol (must be one of the non-terminals):");
         String startSymbol = scanner.nextLine();
@@ -27,16 +27,18 @@ public class Main {
             String[] parts = ruleInput.split("->");
             String nonTerminal = parts[0].trim();
             String[] prd = parts[1].trim().split("\\|");
-            productions.put(nonTerminal, Arrays.asList(prd));
+            productions.putIfAbsent(nonTerminal, new ArrayList<>());
+            productions.get(nonTerminal).addAll(Arrays.asList(prd));
         }
         Grammar grammar = createG(terminals, nonTerminals, startSymbol, productions);
         grammar.displayRules();
-        if (grammar.isType3()){
+        int type = grammar.classify();
+        if (type == 3){
             System.out.println("It's type 3");
         }
         else {
             System.out.println("It's not type 3 :)");
-            System.out.println("Grammar type: " + grammar.classify());
+            System.out.println("Grammar type: " + type);
         }
 
 
