@@ -2,12 +2,19 @@ package com.akraml;
 
 import lombok.Data;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
+/**
+ * <p>Grammar class is a data structure to represent a Grammar in <b>Formal Language Theory</b>.</p>
+ * <p>For more information, check out <a href="https://en.wikipedia.org/wiki/Formal_language">This Wikipedia article</a></p>
+ *
+ * @author Akram Louze, Moussa Tiab
+ */
 @Data
 public final class Grammar {
+
+    // My computer almost exploded due to infinity loop
+    private static final int MAX_DERIVATION_DEPTH = 20;
 
     private final Set<String> VT, VN; // Terminal & Non-Terminal symbols
     private final String S; // Start symbol
@@ -22,61 +29,83 @@ public final class Grammar {
         }
     }
 
+    /**
+     * Check if the current {@link Grammar} is a type 3 grammar.
+     *
+     * @return {@code true} If it's a type 3 grammar, {@code false} otherwise.
+     * @author Akram Louze
+     */
     public boolean isType3() {
         boolean isRightLinear = true;
         boolean isLeftLinear = true;
 
         for (Map.Entry<String, List<String>> entry : productions.entrySet()) {
-            String nonTerminal = entry.getKey();
-            for (String production : entry.getValue()) {
-                // Check for right-linear form: A -> aB or A -> a or A -> ε
-                if (!production.matches("^[a-z]?[A-Z]?$") && !production.equals("$")) {
-                    isRightLinear = false;
+            String lhs = entry.getKey().trim();
+            // LHS must be exactly one non-terminal
+            if (!VN.contains(lhs) || lhs.length() != 1) {
+                return false;
+            }
+            for (String rule : entry.getValue()) {
+                String rhs = rule.trim();
+                // Allow empty production only if LHS equals start symbol (if applicable)
+                if (rhs.equals("$")) {
+                    if (!lhs.equals(S)) return false;
+                    continue;
                 }
-
-                // Check for left-linear form: A -> Ba or A -> a or A -> ε
-                if (!production.matches("^[A-Z]?[a-z]?$") && !production.equals("$")) {
-                    isLeftLinear = false;
+                boolean right = isValidRightLinearRule(rhs);
+                boolean left = isValidLeftLinearRule(rhs);
+                if (!right) isRightLinear = false;
+                if (!left) isLeftLinear = false;
+                if (!right && !left) {
+                    return false;
                 }
             }
         }
-
-        // The grammar is type 3 if it is either right-linear or left-linear, but not both
         return isRightLinear || isLeftLinear;
     }
 
-    public boolean isContextFree() {
-        Map<String, List<String>> productions = getProductions();
-        Set<String> V_N = getVN();
-        for (String lhs : productions.keySet()) {
-            if (lhs.length() != 1 || !V_N.contains(lhs)) {
-                return false;
-            }
-        }
-        return true;
+    /**
+     * Just a helper function for right linear check.
+     *
+     * @param rhs Right-hand side.
+     * @return {@code true} If the provided rule is valid, {@code false} otherwise.
+     * @author Akram Louze
+     */
+    private boolean isValidRightLinearRule(String rhs) {
+        if (rhs.length() == 1 && VT.contains(rhs)) return true;
+        if (rhs.length() == 2
+                && VT.contains(String.valueOf(rhs.charAt(0)))
+                && VN.contains(String.valueOf(rhs.charAt(1)))) return true;
+        return false;
     }
 
-    public boolean isContextSensitive() {
-        Map<String, List<String>> productions = getProductions();
-        String startSymbol = getS();
-        for (String A : productions.keySet()) {
-            for (String r : productions.get(A)) {
-                if (r.equals("$")) {
-                    if (!A.equals(startSymbol)) {
-                        return false;
-                    }
-                    // If S -> ε exists, ensure that S does not appear on any right-hand side.
-                    for (String B : productions.keySet()) {
-                        for (String prod : productions.get(B)) {
-                            if (prod.contains(startSymbol)) {
-                                return false;
-                            }
-                        }
-                    }
-                } else {
-                    if (r.length() < A.length()) {
-                        return false;
-                    }
+    /**
+     * Same as {@link #isValidRightLinearRule(String)}, but for left linearity check.
+     *
+     * @author Akram Louze
+     */
+    private boolean isValidLeftLinearRule(String rhs) {
+        if (rhs.length() == 1 && VT.contains(rhs)) return true;
+        if (rhs.length() == 2
+                && VN.contains(String.valueOf(rhs.charAt(0)))
+                && VT.contains(String.valueOf(rhs.charAt(1)))) return true;
+        return false;
+    }
+
+
+    /**
+     * Check if the current {@link Grammar} is a type 2 grammar.
+     *
+     * @return {@code true} If it's a type 2 grammar, {@code false} otherwise.
+     * @author Moussa Tiab
+     */
+    private boolean isType2() {
+        for (Map.Entry<String, List<String>> entry : productions.entrySet()) {
+            String nonTerminal = entry.getKey();
+            for (String production : entry.getValue()) {
+                // Check if the left side is a single non-terminal
+                if (nonTerminal.length() != 1 || !VN.contains(nonTerminal)) {
+                    return false;
                 }
             }
         }
@@ -84,28 +113,97 @@ public final class Grammar {
     }
 
     /**
-     * Classify the grammar into one of the following types:
-     *  Type 0: Unrestricted Grammar
-     *  Type 1: Context-Sensitive Grammar (if no problematic ε-production exists)
-     *  Type 2: Context-Free Grammar (with problematic ε-production)
-     *  Type 3: Regular Grammar
-     * The classification is done hierarchically.
+     * Check if the current {@link Grammar} is a type 3 grammar.
+     *
+     * @return {@code true} If it's a type 3 grammar, {@code false} otherwise.
+     * @author Moussa Tiab
      */
+    private boolean isType1() {
+        for (Map.Entry<String, List<String>> entry : productions.entrySet()) {
+            String leftSide = entry.getKey();
+            String startSymbol = getS();
+            for (String production : entry.getValue()) {
+                if (production.equals("$")) {
+                    if (!leftSide.equals(startSymbol)) return false;
+                }
+                // Check if |leftSide| <= |production|
+                if (leftSide.length() > production.length()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     public int classify() {
-        // First, if not context-free, then it's unrestricted (Type 0).
-        if (!isContextFree()) {
-            return 0;
+        if (isType3()) return 3;
+        if (isType2()) return 2;
+        if (isType1()) return 1;
+        return 0;
+    }
+
+    public void derive(String target) {
+        String startSymbol = getS();
+        Map<String, List<String>> productions = getProductions();
+
+        Queue<List<String>> queue = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+
+        queue.add(Collections.singletonList(startSymbol));
+
+        while (!queue.isEmpty()) {
+            List<String> steps = queue.poll();
+            String current = steps.get(steps.size() - 1);
+
+            // Prevent computer from doing BOOM
+            if (steps.size() > MAX_DERIVATION_DEPTH) {
+                System.out.println("Max depth reached. Derivation stopped.");
+                return;
+            }
+
+            if (current.equals(target)) {
+                System.out.println("Derivation steps:");
+                steps.forEach(System.out::println);
+                return;
+            }
+
+            if (visited.contains(current)) continue;
+            visited.add(current);
+
+            // Expand the current string using valid productions
+            for (Map.Entry<String, List<String>> entry : productions.entrySet()) {
+                String nonTerminal = entry.getKey();
+
+                // Check all occurrences of the non-terminal in the current string
+                int index = current.indexOf(nonTerminal);
+                while (index != -1) {
+                    for (String production : entry.getValue()) {
+                        String nextStep = current.substring(0, index) + production + current.substring(index + nonTerminal.length());
+
+                        // Only add steps that make some progress
+                        if (!visited.contains(nextStep)) {
+                            List<String> newSteps = new ArrayList<>(steps);
+                            newSteps.add(nextStep);
+                            queue.add(newSteps);
+                        }
+                    }
+                    index = current.indexOf(nonTerminal, index + 1);
+                }
+            }
         }
-        // If it is context-free and satisfies regular conditions, then it is Type 3.
-        if (isType3()) {
-            return 3;
+
+        System.out.println("No valid derivation found for: " + target);
+    }
+
+    // Utility method to count non-terminals in a string
+    private int countNonTerminals(String str, Set<String> nonTerminals) {
+        int count = 0;
+        for (char c : str.toCharArray()) {
+            if (nonTerminals.contains(String.valueOf(c))) {
+                count++;
+            }
         }
-        // If it is not regular but meets context-sensitive criteria, then it's Type 1.
-        if (isContextSensitive()) {
-            return 1;
-        }
-        // Otherwise, it remains as a context-free grammar (Type 2).
-        return 2;
+        return count;
     }
 
 }
